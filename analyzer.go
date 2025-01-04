@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -101,24 +102,61 @@ func (a *Analyzer) shouldProcessFile(path string, info os.FileInfo) bool {
 }
 
 func (a *Analyzer) processFile(path string) (FileEntry, error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return FileEntry{}, err
-	}
+    // First check if it's a text file by reading the first few bytes
+    f, err := os.Open(path)
+    if err != nil {
+        return FileEntry{}, err
+    }
+    defer f.Close()
 
-	info, err := os.Stat(path)
-	if err != nil {
-		return FileEntry{}, err
-	}
+    // Read first 512 bytes to check content type
+    buffer := make([]byte, 512)
+    n, err := f.Read(buffer)
+    if err != nil && err != io.EOF {
+        return FileEntry{}, err
+    }
+    buffer = buffer[:n]
 
-	relPath, err := filepath.Rel(a.config.Path, path)
-	if err != nil {
-		return FileEntry{}, err
-	}
+    // Check if file appears to be binary
+    if isBinary(buffer) {
+        return FileEntry{}, nil // Skip binary files silently
+    }
 
-	return FileEntry{
-		Path:    relPath,
-		Content: string(content),
-		Size:    info.Size(),
-	}, nil
+    // If we get here, file is probably text, read the whole thing
+    content, err := ioutil.ReadFile(path)
+    if err != nil {
+        return FileEntry{}, err
+    }
+
+    info, err := os.Stat(path)
+    if err != nil {
+        return FileEntry{}, err
+    }
+
+    relPath, err := filepath.Rel(a.config.Path, path)
+    if err != nil {
+        return FileEntry{}, err
+    }
+
+    return FileEntry{
+        Path:    relPath,
+        Content: string(content),
+        Size:    info.Size(),
+    }, nil
+}
+
+func isBinary(buf []byte) bool {
+    const binary_threshold = 0.3
+    if len(buf) == 0 {
+        return false
+    }
+
+    binaryCount := 0
+    for _, b := range buf {
+        if b == 0 || (b < 7 && b != 5 && b != 4) || (b > 14 && b < 32 && b != '\n' && b != '\r' && b != '\t') {
+            binaryCount++
+        }
+    }
+
+    return float64(binaryCount)/float64(len(buf)) > binary_threshold
 }
