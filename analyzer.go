@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -112,6 +113,17 @@ func (a *Analyzer) processFile(path string) (FileEntry, error) {
     }
     defer f.Close()
 
+    info, err := os.Stat(path)
+    if err != nil {
+        return FileEntry{}, err
+    }
+
+    // For large files, show a separate progress bar
+    var progress *ProgressTracker
+    if info.Size() > 1024*1024 { // 1MB
+        progress = NewProgressTracker(info.Size(), fmt.Sprintf("Reading %s", filepath.Base(path)))
+    }
+
     // Read first 512 bytes to check content type
     buffer := make([]byte, 512)
     n, err := f.Read(buffer)
@@ -122,29 +134,54 @@ func (a *Analyzer) processFile(path string) (FileEntry, error) {
 
     // Check if file appears to be binary
     if isBinary(buffer) {
-        return FileEntry{}, nil // Skip binary files silently
+        return FileEntry{}, nil
     }
 
     // If we get here, file is probably text, read the whole thing
-    content, err := ioutil.ReadFile(path)
-    if err != nil {
-        return FileEntry{}, err
+    if progress != nil {
+        // For large files, read in chunks with progress
+        var content bytes.Buffer
+        content.Write(buffer)
+        
+        chunk := make([]byte, 32*1024)
+        progress.Increment(int64(n)) // Account for initial read
+        
+        for {
+            n, err := f.Read(chunk)
+            if err == io.EOF {
+                break
+            }
+            if err != nil {
+                return FileEntry{}, err
+            }
+            content.Write(chunk[:n])
+            progress.Increment(int64(n))
+        }
+        
+        if progress != nil {
+            progress.Finish()
+        }
+        
+        return a.createFileEntry(path, content.String(), info)
+    } else {
+        // For smaller files, read all at once
+        content, err := ioutil.ReadFile(path)
+        if err != nil {
+            return FileEntry{}, err
+        }
+        return a.createFileEntry(path, string(content), info)
     }
+}
 
-    info, err := os.Stat(path)
-    if err != nil {
-        return FileEntry{}, err
-    }
-
+func (a *Analyzer) createFileEntry(path string, content string, info os.FileInfo) (FileEntry, error) {
     relPath, err := filepath.Rel(a.config.Path, path)
     if err != nil {
         return FileEntry{}, err
     }
 
-    // Count tokens if tokenizer is configured
     var tokenCount *TokenCount
     if a.tokenizer != nil {
-        count, err := a.tokenizer.CountTokens(string(content))
+        count, err := a.tokenizer.CountTokens(content)
         if err != nil {
             return FileEntry{}, fmt.Errorf("failed to count tokens: %w", err)
         }
@@ -153,7 +190,7 @@ func (a *Analyzer) processFile(path string) (FileEntry, error) {
 
     return FileEntry{
         Path:       relPath,
-        Content:    string(content),
+        Content:    content,
         Size:       info.Size(),
         TokenCount: tokenCount,
     }, nil
@@ -182,6 +219,24 @@ func (a *Analyzer) CollectFiles() ([]FileEntry, error) {
     errorsChan := make(chan error)
     done := make(chan bool)
 
+    // First, count total files for progress bar
+    var totalFiles int64
+    err := filepath.Walk(a.config.Path, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+        if !info.IsDir() && a.shouldProcessFile(path, info) {
+            totalFiles++
+        }
+        return nil
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    // Create progress tracker
+    progress := NewProgressTracker(totalFiles, "Analyzing files")
+
     go func() {
         for entry := range entriesChan {
             entries = append(entries, entry)
@@ -189,10 +244,11 @@ func (a *Analyzer) CollectFiles() ([]FileEntry, error) {
         done <- true
     }()
 
-    err := filepath.Walk(a.config.Path, func(path string, info os.FileInfo, err error) error {
+    err = filepath.Walk(a.config.Path, func(path string, info os.FileInfo, err error) error {
         if err != nil {
             return err
         }
+        
         if relPath, err := filepath.Rel(a.config.Path, path); err == nil {
             if strings.Count(relPath, string(os.PathSeparator)) > a.config.MaxDepth {
                 if info.IsDir() {
@@ -217,6 +273,7 @@ func (a *Analyzer) CollectFiles() ([]FileEntry, error) {
                 errorsChan <- err
             } else {
                 entriesChan <- entry
+                progress.IncrementFiles(1)
             }
         }(path)
 
@@ -233,6 +290,7 @@ func (a *Analyzer) CollectFiles() ([]FileEntry, error) {
     }()
 
     <-done
+    progress.Finish()
 
     return entries, nil
 }
