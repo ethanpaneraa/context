@@ -18,6 +18,7 @@ type FileEntry struct {
 type Analyzer struct {
 	config *Config
 	matcher *PatternMatcher
+	
 }
 
 func NewAnalyzer(cfg *Config) *Analyzer {
@@ -159,4 +160,66 @@ func isBinary(buf []byte) bool {
     }
 
     return float64(binaryCount)/float64(len(buf)) > binary_threshold
+}
+
+func (a *Analyzer) CollectFiles() ([]FileEntry, error) {
+    var entries []FileEntry
+    var wg sync.WaitGroup
+    entriesChan := make(chan FileEntry)
+    errorsChan := make(chan error)
+    done := make(chan bool)
+
+    go func() {
+        for entry := range entriesChan {
+            entries = append(entries, entry)
+        }
+        done <- true
+    }()
+
+    err := filepath.Walk(a.config.Path, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+        if relPath, err := filepath.Rel(a.config.Path, path); err == nil {
+            if strings.Count(relPath, string(os.PathSeparator)) > a.config.MaxDepth {
+                if info.IsDir() {
+                    return filepath.SkipDir
+                }
+                return nil
+            }
+        }
+
+        if info.IsDir() {
+            return nil
+        }
+
+        if !a.shouldProcessFile(path, info) {
+            return nil
+        }
+
+        wg.Add(1)
+        go func(p string) {
+            defer wg.Done()
+            if entry, err := a.processFile(p); err != nil {
+                errorsChan <- err
+            } else {
+                entriesChan <- entry
+            }
+        }(path)
+
+        return nil
+    })
+
+    if err != nil {
+        return nil, err
+    }
+
+    go func() {
+        wg.Wait()
+        close(entriesChan)
+    }()
+
+    <-done
+
+    return entries, nil
 }

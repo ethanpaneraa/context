@@ -52,15 +52,13 @@ func matchPattern(pattern, path string) bool {
     path = filepath.ToSlash(path)
     pattern = filepath.ToSlash(pattern)
 
-    // If pattern is a directory name (no wildcards), check if it appears anywhere in the path
+	
     if !strings.Contains(pattern, "*") {
         return strings.Contains(path, "/"+pattern+"/") || strings.HasPrefix(path, pattern+"/")
     }
 
-    // Handle patterns starting with **
     if strings.HasPrefix(pattern, "**/") {
-        pattern = pattern[3:] // Remove **/ prefix
-        // Check if the pattern matches any part of the path
+        pattern = pattern[3:] 
         for {
             if matched, _ := filepath.Match(pattern, path); matched {
                 return true
