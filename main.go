@@ -23,19 +23,16 @@ func parseFlags() (*Config, error) {
     flag.BoolVar(&cfg.UseClip, "c", false, "Copy output to clipboard")
     flag.BoolVar(&cfg.Interactive, "i", false, "Interactive mode")
     
-    // New tokenizer flags
     tokenizerType := flag.String("tokenizer", "", "Tokenizer type (gpt-3.5-turbo, gpt-4, claude, huggingface)")
     flag.StringVar(&cfg.TokenizerModel, "tokenizer-model", "", "Path to HuggingFace tokenizer model")
     flag.IntVar(&cfg.TokenLimit, "token-limit", 4096, "Maximum token limit")
 
     flag.Parse()
 
-    // Validate path
     if _, err := os.Stat(cfg.Path); os.IsNotExist(err) {
         return nil, fmt.Errorf("path '%s' does not exist", cfg.Path)
     }
 
-    // Parse include/exclude patterns
     if *includeStr != "" {
         cfg.Include = strings.Split(*includeStr, ",")
     }
@@ -43,7 +40,6 @@ func parseFlags() (*Config, error) {
         cfg.Exclude = strings.Split(*excludeStr, ",")
     }
 
-    // Set tokenizer type if specified
     if *tokenizerType != "" {
         switch *tokenizerType {
         case "gpt-3.5-turbo":
@@ -85,19 +81,15 @@ func main() {
     }
 
     if cfg.Interactive {
-        // Create a channel to receive selected files
         selectedChan := make(chan []FileEntry, 1)
         
         picker := NewFilePicker(files, func(selected []FileEntry) {
-            defer close(selectedChan) // Make sure we close the channel
-            
-            // If no files were selected (user cancelled), send empty slice
+            defer close(selectedChan) 
             if len(selected) == 0 {
                 selectedChan <- nil
                 return
             }
             
-            // Process selected files
             var processedFiles []FileEntry
             for _, file := range selected {
                 if file.Content == "" {
@@ -133,7 +125,6 @@ func main() {
         case <-time.After(100 * time.Millisecond): 
         }
 
-        // Wait for selected files
         selectedFiles := <-selectedChan
         if selectedFiles == nil {
             fmt.Println("Operation cancelled.")
@@ -145,7 +136,6 @@ func main() {
             os.Exit(0)
         }
 
-        // Generate output for selected files
         if err := generateOutput(selectedFiles, cfg.Output, cfg.UseClip); err != nil {
             fmt.Fprintf(os.Stderr, "Error: %v\n", err)
             os.Exit(1)

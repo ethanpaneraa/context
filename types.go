@@ -27,10 +27,10 @@ type Config struct {
 
 type TokenCount struct {
     Count      int
-    TokensPerc float64 // Percentage of limit used
+    TokensPerc float64 
     Truncated  bool
     TokenLimit int
-    WarnLimit  int // Warning threshold (e.g., 80% of limit)
+    WarnLimit  int 
 }
 
 type FileEntry struct {

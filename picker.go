@@ -32,10 +32,8 @@ func NewFilePicker(files []FileEntry, onDone func([]FileEntry)) *FilePicker {
 }
 
 func (fp *FilePicker) setupUI() {
-    // Create main flex container
     flex := tview.NewFlex().SetDirection(tview.FlexRow)
 
-    // Setup help text with more visible formatting
     helpText := tview.NewTextView().
         SetText("Controls:\n" +
             "↑/↓      : Navigate files\n" +
@@ -47,7 +45,6 @@ func (fp *FilePicker) setupUI() {
         SetTextAlign(tview.AlignLeft).
         SetDynamicColors(true)
 
-    // Setup search input
     fp.search = tview.NewInputField().
         SetLabel("Search: ").
         SetFieldWidth(0).
@@ -58,16 +55,13 @@ func (fp *FilePicker) setupUI() {
             }
         })
 
-    // Setup file list
     fp.list = tview.NewList().
         ShowSecondaryText(true).
         SetHighlightFullLine(true).
         SetSelectedBackgroundColor(tcell.ColorRoyalBlue)
 
-    // Populate initial list
     fp.updateList("")
 
-    // Add keybindings for the list
     fp.list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
         switch event.Key() {
         case tcell.KeyEnter:
@@ -93,7 +87,6 @@ func (fp *FilePicker) setupUI() {
         return event
 })
 
-    // Add global keybindings
     fp.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
         switch event.Key() {
 		case tcell.KeyCtrlC:
@@ -111,17 +104,14 @@ func (fp *FilePicker) setupUI() {
         return event
     })
 
-    // Add components to flex with better proportions
-    flex.AddItem(helpText, 7, 0, false).          // Give help text more space
+    flex.AddItem(helpText, 7, 0, false).   
         AddItem(fp.search, 1, 0, false).
         AddItem(fp.list, 0, 1, true)
 
-    // Set root and initial focus
     fp.app.SetRoot(flex, true).SetFocus(fp.list)
 }
 
 func (fp *FilePicker) toggleSelection(file FileEntry) {
-    // Check if already selected
     for i, sel := range fp.selected {
         if sel.Path == file.Path {
             // Remove from selection
@@ -155,10 +145,8 @@ func (fp *FilePicker) updateList(search string) {
                 }
             }
 
-            // Add to filtered list
             fp.filtered = append(fp.filtered, file)
 
-            // Create display text
             prefix := "  "
             if isSelected {
                 prefix = "✓ "

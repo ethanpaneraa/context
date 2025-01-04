@@ -43,7 +43,6 @@ func generateOutput(entries []FileEntry, format string, useClip bool) error {
         return fmt.Errorf("invalid output format specified")
     }
 
-    // Print to terminal with proper formatting
     fmt.Print(buf.String())
 
     if useClip {
@@ -69,7 +68,6 @@ func printFiles(entries []FileEntry, buf *bytes.Buffer) error {
         }
     }
 
-    // Print token summary if token counting is enabled
     if maxTokenLimit > 0 {
         fmt.Fprintf(buf, "Token Summary:\n")
         fmt.Fprintf(buf, "Total Tokens: %d\n", totalTokens)
@@ -78,17 +76,14 @@ func printFiles(entries []FileEntry, buf *bytes.Buffer) error {
     }
 
     for _, entry := range entries {
-        // File header
         fmt.Fprintf(buf, "\nFile: %s\n", entry.Path)
         fmt.Fprintf(buf, "%s\n", strings.Repeat("=", 48))
 
-        // Token warning if needed
         if entry.TokenCount != nil && entry.TokenCount.TokensPerc >= 80 {
             fmt.Fprintf(buf, "⚠️ Token usage: %d (%.1f%% of limit)\n",
                 entry.TokenCount.Count, entry.TokenCount.TokensPerc)
         }
 
-        // Format and write content
         formattedContent := formatFileContent(entry.Content)
         fmt.Fprintf(buf, "%s\n", formattedContent)
     }
@@ -97,24 +92,20 @@ func printFiles(entries []FileEntry, buf *bytes.Buffer) error {
 }
 
 func formatFileContent(content string) string {
-    // Split into lines and process each line
     lines := strings.Split(content, "\n")
     var formatted []string
     indent := 0
 
     for _, line := range lines {
-        // Remove all trailing whitespace
         trimmed := strings.TrimRightFunc(line, unicode.IsSpace)
         if trimmed == "" {
             formatted = append(formatted, "")
             continue
         }
 
-        // Calculate indent level changes
         leadingSpace := countLeadingSpace(trimmed)
         trimmed = strings.TrimSpace(trimmed)
 
-        // Adjust indent based on content
         if strings.HasSuffix(trimmed, "{") || strings.HasSuffix(trimmed, "[") {
             formatted = append(formatted, strings.Repeat("  ", indent)+trimmed)
             indent++
@@ -122,7 +113,6 @@ func formatFileContent(content string) string {
             indent = max(0, indent-1)
             formatted = append(formatted, strings.Repeat("  ", indent)+trimmed)
         } else {
-            // Preserve original indentation for non-bracket lines
             if leadingSpace > 0 {
                 indent = leadingSpace / 2
             }
@@ -138,7 +128,7 @@ func countLeadingSpace(s string) int {
     for _, r := range s {
         if unicode.IsSpace(r) {
             if r == '\t' {
-                count += 4 // Convert tabs to 4 spaces
+                count += 4 
             } else {
                 count++
             }
@@ -156,7 +146,6 @@ func max(a, b int) int {
     return b
 }
 
-// Tree-related functions remain unchanged
 func printTree(entries []FileEntry, buf *bytes.Buffer) error {
     if len(entries) == 0 {
         return nil

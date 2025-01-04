@@ -16,7 +16,6 @@ type Tokenizer interface {
 	Name() string
 }
 
-// TiktokenTokenizer implements OpenAI's tiktoken
 type TiktokenTokenizer struct {
 	encoding     *tiktoken.Tiktoken
 	model       string
@@ -59,7 +58,6 @@ func (t *TiktokenTokenizer) Name() string {
 	return fmt.Sprintf("tiktoken-%s", t.model)
 }
 
-// HuggingFaceTokenizer implements HuggingFace tokenizers
 type HuggingFaceTokenizer struct {
 	tokenizer   *tokenizer.Tokenizer
 	modelPath   string
@@ -106,7 +104,6 @@ func (h *HuggingFaceTokenizer) Name() string {
 	return fmt.Sprintf("huggingface-%s", filepath.Base(h.modelPath))
 }
 
-// TokenizerFactory creates appropriate tokenizer based on type
 func NewTokenizer(tokType TokenizerType, modelPath string, limit int) (Tokenizer, error) {
 	switch tokType {
 	case TiktokenGPT35:
