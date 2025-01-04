@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	PIPE        = "│"
-	BRANCH      = "├──"
-	LAST_BRANCH = "└──"
-	INDENT      = "   "
-	INDENT_PIPE = "│  "
+    PIPE        = "│"
+    BRANCH      = "├─"    // Single character
+    LAST_BRANCH = "└─"    // Single character
+    INDENT      = "  "    // Two spaces is standard for tree views
+    INDENT_PIPE = "│ "    // Single space after pipe
 )
 
 func generateOutput(entries []FileEntry, format string, useClip bool) error {
@@ -41,10 +41,8 @@ func generateOutput(entries []FileEntry, format string, useClip bool) error {
 		return fmt.Errorf("invalid output format specified")
 	}
 
-	// Print to stdout
 	fmt.Print(buf.String())
 
-	// Copy to clipboard if requested
 	if useClip {
 		if err := clipboard.WriteAll(buf.String()); err != nil {
 			return fmt.Errorf("failed to copy to clipboard: %w", err)

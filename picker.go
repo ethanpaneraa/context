@@ -71,14 +71,11 @@ func (fp *FilePicker) setupUI() {
     fp.list.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
         switch event.Key() {
         case tcell.KeyEnter:
-
-            fmt.Printf("Debug: Selected %d files\n", len(fp.selected))
             fp.onDone(fp.selected)
             fp.app.Stop()
             return nil
         case tcell.KeyEsc:
-            // Cancel
-            fmt.Println("Debug: Cancelling selection")
+			fp.onDone(nil)
             fp.app.Stop()
             return nil
         case tcell.KeyRune:
@@ -99,6 +96,10 @@ func (fp *FilePicker) setupUI() {
     // Add global keybindings
     fp.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
         switch event.Key() {
+		case tcell.KeyCtrlC:
+			fp.onDone(nil)
+			fp.app.Stop()
+			return nil
         case tcell.KeyTab:
             if fp.app.GetFocus() == fp.search {
                 fp.app.SetFocus(fp.list)
@@ -120,20 +121,16 @@ func (fp *FilePicker) setupUI() {
 }
 
 func (fp *FilePicker) toggleSelection(file FileEntry) {
-    fmt.Printf("Debug: Toggling selection for file: %s\n", file.Path)
     // Check if already selected
     for i, sel := range fp.selected {
         if sel.Path == file.Path {
             // Remove from selection
-            fmt.Printf("Debug: Removing file from selection: %s\n", file.Path)
             fp.selected = append(fp.selected[:i], fp.selected[i+1:]...)
             fp.updateList(fp.search.GetText())
             return
         }
     }
 
-    // Add to selection
-    fmt.Printf("Debug: Adding file to selection: %s\n", file.Path)
     fp.selected = append(fp.selected, file)
     fp.updateList(fp.search.GetText())
 }

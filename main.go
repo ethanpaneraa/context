@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	// "path/filepath"
 	"strings"
@@ -74,7 +75,15 @@ func main() {
         selectedChan := make(chan []FileEntry, 1)
         
         picker := NewFilePicker(files, func(selected []FileEntry) {
-            // Process selected files and send them through the channel
+            defer close(selectedChan) // Make sure we close the channel
+            
+            // If no files were selected (user cancelled), send empty slice
+            if len(selected) == 0 {
+                selectedChan <- nil
+                return
+            }
+            
+            // Process selected files
             var processedFiles []FileEntry
             for _, file := range selected {
                 if file.Content == "" {
@@ -91,32 +100,43 @@ func main() {
             selectedChan <- processedFiles
         })
 
-		if picker == nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to create file picker\n")
-			os.Exit(1)
-		}
-        
-        if err := picker.Run(); err != nil {
-            fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+        if picker == nil {
+            fmt.Fprintf(os.Stderr, "Error: failed to create file picker\n")
             os.Exit(1)
         }
+        
+        done := make(chan error, 1)
+        go func() {
+            done <- picker.Run()
+        }()
 
-        selectedFiles := <-selectedChan
-
-		if len(selectedFiles) == 0 {
-			fmt.Println("No files selected.")
-			os.Exit(0)
-		}
-
-        if len(selectedFiles) > 0 {
-            // Generate output for selected files only
-            if err := generateOutput(selectedFiles, cfg.Output, cfg.UseClip); err != nil {
+        select {
+        case err := <-done:
+            if err != nil {
                 fmt.Fprintf(os.Stderr, "Error: %v\n", err)
                 os.Exit(1)
             }
+        case <-time.After(100 * time.Millisecond): 
+        }
+
+        // Wait for selected files
+        selectedFiles := <-selectedChan
+        if selectedFiles == nil {
+            fmt.Println("Operation cancelled.")
+            os.Exit(0)
+        }
+
+        if len(selectedFiles) == 0 {
+            fmt.Println("No files selected.")
+            os.Exit(0)
+        }
+
+        // Generate output for selected files
+        if err := generateOutput(selectedFiles, cfg.Output, cfg.UseClip); err != nil {
+            fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+            os.Exit(1)
         }
     } else {
-        // Non-interactive mode - process all files
         if err := generateOutput(files, cfg.Output, cfg.UseClip); err != nil {
             fmt.Fprintf(os.Stderr, "Error: %v\n", err)
             os.Exit(1)
