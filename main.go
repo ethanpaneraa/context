@@ -18,6 +18,7 @@ type Config struct {
 	Output    string
 	Threads   int
 	Hidden    bool
+	UseClip   bool
 }
 
 func parseFlags() (*Config, error) {
@@ -31,6 +32,7 @@ func parseFlags() (*Config, error) {
 	flag.StringVar(&cfg.Output, "output", "both", "Output format (tree, files, or both)")
 	flag.IntVar(&cfg.Threads, "threads", 0, "Number of threads for parallel processing")
 	flag.BoolVar(&cfg.Hidden, "hidden", false, "Show hidden files and directories")
+	flag.BoolVar(&cfg.UseClip, "c", false, "Copy output to clipboard")
 
 	flag.Parse()
 
