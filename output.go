@@ -133,11 +133,42 @@ func printNode(tree map[string][]string, node, prefix, childPrefix string, buf *
 }
 
 func printFiles(entries []FileEntry, buf *bytes.Buffer) error {
-	for _, entry := range entries {
-		fmt.Fprintf(buf, "\nFile: %s\n", entry.Path)
-		fmt.Fprintf(buf, "%s\n", strings.Repeat("=", 48))
-		fmt.Fprintf(buf, "%s\n", entry.Content)
-	}
-	
-	return nil
+    var totalTokens int
+    var maxTokenLimit int
+
+    for _, entry := range entries {
+        if entry.TokenCount != nil {
+            totalTokens += entry.TokenCount.Count
+            if entry.TokenCount.TokenLimit > maxTokenLimit {
+                maxTokenLimit = entry.TokenCount.TokenLimit
+            }
+        }
+    }
+
+    // Print token summary if token counting is enabled
+    if maxTokenLimit > 0 {
+        tokenPerc := float64(totalTokens) / float64(maxTokenLimit) * 100
+        fmt.Fprintf(buf, "Token Summary:\n")
+        fmt.Fprintf(buf, "Total Tokens: %d\n", totalTokens)
+        fmt.Fprintf(buf, "Token Limit: %d\n", maxTokenLimit)
+        fmt.Fprintf(buf, "Usage: %.1f%%\n\n", tokenPerc)
+        
+        if tokenPerc >= 80 {
+            fmt.Fprintf(buf, "⚠️ Warning: Approaching token limit!\n\n")
+        }
+    }
+
+    for _, entry := range entries {
+        fmt.Fprintf(buf, "\nFile: %s\n", entry.Path)
+        fmt.Fprintf(buf, "%s\n", strings.Repeat("=", 48))
+        
+        if entry.TokenCount != nil && entry.TokenCount.TokensPerc >= 80 {
+            fmt.Fprintf(buf, "⚠️ Token usage: %d (%.1f%% of limit)\n", 
+                entry.TokenCount.Count, entry.TokenCount.TokensPerc)
+        }
+        
+        fmt.Fprintf(buf, "%s\n", entry.Content)
+    }
+    
+    return nil
 }

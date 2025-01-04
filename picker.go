@@ -180,7 +180,18 @@ func formatFileInfo(file FileEntry) string {
     if ext == "" {
         ext = "no extension"
     }
-    return fmt.Sprintf("%s, %s", size, ext)
+    
+    info := fmt.Sprintf("%s, %s", size, ext)
+    
+    if file.TokenCount != nil {
+        tokenInfo := fmt.Sprintf(", %d tokens", file.TokenCount.Count)
+        if file.TokenCount.TokensPerc >= 80 {
+            tokenInfo += fmt.Sprintf(" (%.1f%% of limit!)", file.TokenCount.TokensPerc)
+        }
+        info += tokenInfo
+    }
+    
+    return info
 }
 
 func formatSize(size int64) string {

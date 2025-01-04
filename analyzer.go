@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -9,23 +10,24 @@ import (
 	"sync"
 )
 
-type FileEntry struct {
-	Path    string
-	Content string
-	Size    int64
-}
-
 type Analyzer struct {
 	config *Config
 	matcher *PatternMatcher
-	
+	tokenizer Tokenizer
 }
 
-func NewAnalyzer(cfg *Config) *Analyzer {
-	return &Analyzer{
-		config:  cfg,
-		matcher: NewPatternMatcher(cfg.Include, cfg.Exclude),
+
+func NewAnalyzer(cfg *Config) (*Analyzer, error) {
+	tokenizer, err := NewTokenizer(cfg.TokenizerType, cfg.TokenizerModel, cfg.TokenLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tokenizer: %w", err)
 	}
+
+	return &Analyzer{
+		config:    cfg,
+		matcher:   NewPatternMatcher(cfg.Include, cfg.Exclude),
+		tokenizer: tokenizer,
+	}, nil
 }
 
 func (a *Analyzer) ProcessDirectory() error {
@@ -139,10 +141,21 @@ func (a *Analyzer) processFile(path string) (FileEntry, error) {
         return FileEntry{}, err
     }
 
+    // Count tokens if tokenizer is configured
+    var tokenCount *TokenCount
+    if a.tokenizer != nil {
+        count, err := a.tokenizer.CountTokens(string(content))
+        if err != nil {
+            return FileEntry{}, fmt.Errorf("failed to count tokens: %w", err)
+        }
+        tokenCount = &count
+    }
+
     return FileEntry{
-        Path:    relPath,
-        Content: string(content),
-        Size:    info.Size(),
+        Path:       relPath,
+        Content:    string(content),
+        Size:       info.Size(),
+        TokenCount: tokenCount,
     }, nil
 }
 

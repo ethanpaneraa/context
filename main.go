@@ -5,28 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
-
-	// "path/filepath"
 	"strings"
+	"time"
 )
-
-type Config struct {
-	Path      string
-	Include   []string
-	Exclude   []string
-	MaxSize   int64
-	MaxDepth  int
-	Output    string
-	Threads   int
-	Hidden    bool
-	UseClip   bool
-	Interactive bool
-}
 
 func parseFlags() (*Config, error) {
     cfg := &Config{}
-
+	cfg.TokenizerType = TiktokenGPT35
     flag.StringVar(&cfg.Path, "path", ".", "Directory to analyze")
     includeStr := flag.String("include", "", "Patterns to include (comma-separated)")
     excludeStr := flag.String("exclude", "", "Patterns to exclude (comma-separated)")
@@ -37,6 +22,11 @@ func parseFlags() (*Config, error) {
     flag.BoolVar(&cfg.Hidden, "hidden", false, "Show hidden files and directories")
     flag.BoolVar(&cfg.UseClip, "c", false, "Copy output to clipboard")
     flag.BoolVar(&cfg.Interactive, "i", false, "Interactive mode")
+    
+    // New tokenizer flags
+    tokenizerType := flag.String("tokenizer", "", "Tokenizer type (gpt-3.5-turbo, gpt-4, claude, huggingface)")
+    flag.StringVar(&cfg.TokenizerModel, "tokenizer-model", "", "Path to HuggingFace tokenizer model")
+    flag.IntVar(&cfg.TokenLimit, "token-limit", 4096, "Maximum token limit")
 
     flag.Parse()
 
@@ -53,6 +43,25 @@ func parseFlags() (*Config, error) {
         cfg.Exclude = strings.Split(*excludeStr, ",")
     }
 
+    // Set tokenizer type if specified
+    if *tokenizerType != "" {
+        switch *tokenizerType {
+        case "gpt-3.5-turbo":
+            cfg.TokenizerType = TiktokenGPT35
+        case "gpt-4":
+            cfg.TokenizerType = TiktokenGPT4
+        case "claude":
+            cfg.TokenizerType = TiktokenClaude
+        case "huggingface":
+            if cfg.TokenizerModel == "" {
+                return nil, fmt.Errorf("must specify --tokenizer-model for HuggingFace tokenizer")
+            }
+            cfg.TokenizerType = HuggingFace
+        default:
+            return nil, fmt.Errorf("unsupported tokenizer type: %s", *tokenizerType)
+        }
+    }
+
     return cfg, nil
 }
 
@@ -63,7 +72,12 @@ func main() {
         os.Exit(1)
     }
 
-    analyzer := NewAnalyzer(cfg)
+    analyzer, err := NewAnalyzer(cfg)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+        os.Exit(1)
+    }
+
     files, err := analyzer.CollectFiles()
     if err != nil {
         fmt.Fprintf(os.Stderr, "Error: %v\n", err)
