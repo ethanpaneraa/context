@@ -112,17 +112,20 @@ func (fp *FilePicker) setupUI() {
 }
 
 func (fp *FilePicker) toggleSelection(file FileEntry) {
+    currentIndex := fp.list.GetCurrentItem() 
+    
     for i, sel := range fp.selected {
         if sel.Path == file.Path {
-            // Remove from selection
             fp.selected = append(fp.selected[:i], fp.selected[i+1:]...)
             fp.updateList(fp.search.GetText())
+            fp.list.SetCurrentItem(currentIndex) 
             return
         }
     }
 
     fp.selected = append(fp.selected, file)
     fp.updateList(fp.search.GetText())
+    fp.list.SetCurrentItem(currentIndex)
 }
 
 func (fp *FilePicker) onSearch(text string) {
@@ -130,13 +133,13 @@ func (fp *FilePicker) onSearch(text string) {
 }
 
 func (fp *FilePicker) updateList(search string) {
+    currentIndex := fp.list.GetCurrentItem() 
     fp.list.Clear()
     fp.filtered = []FileEntry{}
 
     search = strings.ToLower(search)
     for _, file := range fp.files {
         if search == "" || strings.Contains(strings.ToLower(file.Path), search) {
-            // Check if file is selected
             isSelected := false
             for _, sel := range fp.selected {
                 if sel.Path == file.Path {
@@ -159,6 +162,10 @@ func (fp *FilePicker) updateList(search string) {
                 nil,
             )
         }
+    }
+
+    if currentIndex >= 0 && currentIndex < fp.list.GetItemCount() {
+        fp.list.SetCurrentItem(currentIndex)
     }
 }
 
