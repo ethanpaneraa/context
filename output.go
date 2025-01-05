@@ -20,33 +20,66 @@ const (
 )
 
 func generateOutput(entries []FileEntry, format string, useClip bool) error {
-    var buf bytes.Buffer
+    var contentBuf, treeBuf, tokenBuf bytes.Buffer
 
     switch format {
     case "tree":
-        if err := printTree(entries, &buf); err != nil {
+        if err := printTree(entries, &treeBuf); err != nil {
+            return err
+        }
+        if err := printTokenSummary(entries, &tokenBuf); err != nil {
             return err
         }
     case "files":
-        if err := printFiles(entries, &buf); err != nil {
+        if err := printFiles(entries, &contentBuf); err != nil {
+            return err
+        }
+        if err := printTokenSummary(entries, &tokenBuf); err != nil {
             return err
         }
     case "both":
-        if err := printTree(entries, &buf); err != nil {
+        if err := printFiles(entries, &contentBuf); err != nil {
             return err
         }
-        buf.WriteString("\nFile Contents:\n")
-        if err := printFiles(entries, &buf); err != nil {
+        if err := printTree(entries, &treeBuf); err != nil {
+            return err
+        }
+        if err := printTokenSummary(entries, &tokenBuf); err != nil {
             return err
         }
     default:
         return fmt.Errorf("invalid output format specified")
     }
-
-    fmt.Print(buf.String())
+    
+    if contentBuf.Len() > 0 {
+        fmt.Print(contentBuf.String())
+    }
+    
+    if treeBuf.Len() > 0 {
+        if contentBuf.Len() > 0 {
+            fmt.Print("\nDirectory Structure:\n")
+        }
+        fmt.Print(treeBuf.String())
+    }
+    
+    if tokenBuf.Len() > 0 {
+        fmt.Print("\nToken Summary:\n")
+        fmt.Print(tokenBuf.String())
+    }
 
     if useClip {
-        if err := clipboard.WriteAll(buf.String()); err != nil {
+        var clipBuf bytes.Buffer
+        clipBuf.Write(contentBuf.Bytes())
+        if contentBuf.Len() > 0 && treeBuf.Len() > 0 {
+            clipBuf.WriteString("\nDirectory Structure:\n")
+        }
+        clipBuf.Write(treeBuf.Bytes())
+        if tokenBuf.Len() > 0 {
+            clipBuf.WriteString("\nToken Summary:\n")
+            clipBuf.Write(tokenBuf.Bytes())
+        }
+        
+        if err := clipboard.WriteAll(clipBuf.String()); err != nil {
             return fmt.Errorf("failed to copy to clipboard: %w", err)
         }
         fmt.Println("\nOutput copied to clipboard!")
@@ -55,7 +88,7 @@ func generateOutput(entries []FileEntry, format string, useClip bool) error {
     return nil
 }
 
-func printFiles(entries []FileEntry, buf *bytes.Buffer) error {
+func printTokenSummary(entries []FileEntry, buf *bytes.Buffer) error {
     var totalTokens int
     var maxTokenLimit int
 
@@ -69,12 +102,15 @@ func printFiles(entries []FileEntry, buf *bytes.Buffer) error {
     }
 
     if maxTokenLimit > 0 {
-        fmt.Fprintf(buf, "Token Summary:\n")
         fmt.Fprintf(buf, "Total Tokens: %d\n", totalTokens)
         fmt.Fprintf(buf, "Token Limit: %d\n", maxTokenLimit)
-        fmt.Fprintf(buf, "Usage: %.1f%%\n\n", float64(totalTokens)/float64(maxTokenLimit)*100)
+        fmt.Fprintf(buf, "Usage: %.1f%%\n", float64(totalTokens)/float64(maxTokenLimit)*100)
     }
 
+    return nil
+}
+
+func printFiles(entries []FileEntry, buf *bytes.Buffer) error {
     for _, entry := range entries {
         fmt.Fprintf(buf, "\nFile: %s\n", entry.Path)
         fmt.Fprintf(buf, "%s\n", strings.Repeat("=", 48))

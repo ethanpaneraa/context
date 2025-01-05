@@ -50,7 +50,10 @@ func matchPattern(pattern, path string) bool {
 
 	
     if !strings.Contains(pattern, "*") {
-        return strings.Contains(path, "/"+pattern+"/") || strings.HasPrefix(path, pattern+"/")
+        return strings.Contains(path, "/"+pattern+"/") || 
+               strings.HasPrefix(path, pattern+"/") ||
+               strings.HasSuffix(path, "/"+pattern) ||
+               path == pattern
     }
 
     if strings.HasPrefix(pattern, "**/") {
@@ -78,6 +81,7 @@ func defaultExcludes() []string {
         ".svn", ".hg",
         
         "target", "node_modules", "dist", "build",
+        "package-lock.json", 
 
         "*.exe", "*.dll", "*.so", "*.dylib", "*.o", "*.obj",
         "*.bin", "*.dat", "*.db", "*.sqlite", "*.sqlite3",
